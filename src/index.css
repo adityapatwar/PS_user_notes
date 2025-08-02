@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Professional theme transition styles */
+.theme-transition-professional {
+  will-change: opacity;
+  backdrop-filter: blur(2px);
+}
+
+/* Smooth transitions for all theme-aware elements */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition-duration: 250ms;
+}
+
+/* Enhanced professional animations */
+@keyframes subtleFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes professionalPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-subtle-fade-in {
+  animation: subtleFadeIn 0.4s ease-out;
+}
+
+.animate-professional-pulse {
+  animation: professionalPulse 2s ease-in-out infinite;
+}
+
+/* Improved focus states with professional styling */
+.focus\:ring-2:focus {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+
+/* Professional card hover effects */
+.group:hover .group-hover\:scale-105 {
+  transform: scale(1.02);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Professional scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300/60 dark:bg-gray-600/60 rounded-full;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400/80 dark:bg-gray-500/80;
+}
+
+/* Professional loading skeleton */
+@keyframes professionalShimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.animate-professional-shimmer {
+  animation: professionalShimmer 1.5s infinite linear;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background-size: 200px 100%;
+}
+
+/* Professional button states */
+.btn-professional {
+  @apply transition-all duration-200 ease-out;
+}
+
+.btn-professional:hover {
+  @apply transform translate-y-[-1px] shadow-lg;
+}
+
+.btn-professional:active {
+  @apply transform translate-y-[0px] shadow-md;
+}
+
+/* Professional glass effect */
+.glass-professional {
+  backdrop-filter: blur(12px) saturate(180%);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-professional {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid rgba(75, 85, 99, 0.2);
+}
+
+/* Professional text selection */
+::selection {
+  @apply bg-primary-500/20 text-primary-900;
+}
+
+.dark ::selection {
+  @apply bg-primary-400/30 text-primary-100;
+}
+
+/* Professional reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
