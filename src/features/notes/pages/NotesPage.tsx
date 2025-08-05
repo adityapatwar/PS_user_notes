@@ -1,187 +1,240 @@
-import React, { useState } from 'react';
-import { Plus, Search, FileText, Loader2 } from 'lucide-react';
-import { Layout } from '../../../shared/layout/Layout';
+import React, { useEffect, useState } from 'react';
+import { Plus, Search, Filter, Grid, List, Star, Calendar, Tag } from 'lucide-react';
+import { useNotesStore } from '../store/notesStore';
+import { useAuthStore } from '../../auth/store/authStore';
+import { NoteCard } from '../components/NoteCard';
+import { NoteEditor } from '../components/NoteEditor';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
-import { NoteCard } from '../components/NoteCard';
-import { NoteModal } from '../components/NoteModal';
-import { NoteViewer } from '../components/NoteViewer';
-import { useNotes } from '../hooks/useNotes';
+import { Card } from '../../../shared/components/Card';
+import { ThemeToggle } from '../../../shared/components/ThemeToggle';
+import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { Note } from '../../../shared/types';
 
 export const NotesPage: React.FC = () => {
+  const { notes, isLoading, fetchNotes, createNote, updateNote, deleteNote } = useNotesStore();
+  const { user, logout } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [viewingNote, setViewingNote] = useState<Note | null>(null);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [filterBy, setFilterBy] = useState<'all' | 'favorites' | 'recent'>('all');
 
-  const {
-    notes,
-    isLoading,
-    error,
-    createNote,
-    updateNote,
-    deleteNote,
-  } = useNotes();
+  useEffect(() => {
+    fetchNotes();
+  }, [fetchNotes]);
 
-  const filteredNotes = notes.filter(
-    (note) =>
-      note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.content.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredNotes = notes.filter(note => {
+    const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         note.content.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    switch (filterBy) {
+      case 'favorites':
+        return matchesSearch && note.isFavorite;
+      case 'recent':
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        return matchesSearch && new Date(note.updatedAt) > threeDaysAgo;
+      default:
+        return matchesSearch;
+    }
+  });
 
   const handleCreateNote = () => {
-    setEditingNote(null);
-    setIsModalOpen(true);
+    setSelectedNote(null);
+    setIsEditorOpen(true);
   };
 
   const handleEditNote = (note: Note) => {
-    setEditingNote(note);
-    setIsModalOpen(true);
-    setViewingNote(null);
+    setSelectedNote(note);
+    setIsEditorOpen(true);
   };
 
   const handleSaveNote = async (data: { title: string; content: string }) => {
-    if (editingNote) {
-      const success = await updateNote(editingNote.id, data);
-      if (success) {
-        setIsModalOpen(false);
-        setEditingNote(null);
-      }
+    if (selectedNote) {
+      await updateNote(selectedNote.id, data);
     } else {
-      const newNote = await createNote(data);
-      if (newNote) {
-        setIsModalOpen(false);
-      }
+      await createNote(data);
     }
+    setIsEditorOpen(false);
+    setSelectedNote(null);
   };
 
   const handleDeleteNote = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this note?')) {
-      const success = await deleteNote(id);
-      if (success && viewingNote?.id === id) {
-        setViewingNote(null);
-      }
-    }
+    await deleteNote(id);
   };
 
-  const handleViewNote = (note: Note) => {
-    setViewingNote(note);
-  };
-
-  const handleCloseViewer = () => {
-    setViewingNote(null);
-  };
-
-  if (viewingNote) {
-    return (
-      <Layout>
-        <NoteViewer
-          note={viewingNote}
-          onEdit={handleEditNote}
-          onDelete={handleDeleteNote}
-          onBack={handleCloseViewer}
-        />
-      </Layout>
+  const handleToggleFavorite = (id: string) => {
+    // This would typically call an API endpoint to update the favorite status
+    // For now, we'll just update the local state
+    const updatedNotes = notes.map(note =>
+      note.id === id ? { ...note, isFavorite: !note.isFavorite } : note
     );
-  }
+    // Update the store directly for this demo feature
+    useNotesStore.setState({ notes: updatedNotes });
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
-    <Layout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Notes</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {notes.length} {notes.length === 1 ? 'note' : 'notes'} total
-            </p>
-          </div>
-          <Button onClick={handleCreateNote} size="lg" className="shadow-lg">
-            <Plus className="h-5 w-5 mr-2" />
-            New Note
-          </Button>
-        </div>
-
-        {/* Search */}
-        <div className="max-w-md">
-          <Input
-            placeholder="Search notes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={<Search className="h-5 w-5" />}
-          />
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <p className="text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {isLoading && notes.length === 0 && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && notes.length === 0 && (
-          <div className="text-center py-12">
-            <div className="flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-2xl mx-auto mb-4">
-              <FileText className="h-8 w-8 text-gray-400" />
+    <div className="min-h-screen bg-light-bg dark:bg-dark-bg">
+      {/* Header */}
+      <header className="bg-white dark:bg-dark-surface border-b border-light-border dark:border-dark-border sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-dark-surface/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 dark:from-secondary-500 dark:to-secondary-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">N</span>
+                </div>
+                <h1 className="text-xl font-bold text-light-text dark:text-dark-text">
+                  My Notes
+                </h1>
+              </div>
+              
+              <div className="hidden sm:flex items-center space-x-2 text-sm text-light-textSecondary dark:text-dark-textSecondary">
+                <span>•</span>
+                <span>{notes.length} notes</span>
+              </div>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No notes yet
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Get started by creating your first note
-            </p>
-            <Button onClick={handleCreateNote}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Note
+
+            <div className="flex items-center space-x-3">
+              <span className="hidden sm:inline text-sm text-light-textSecondary dark:text-dark-textSecondary">
+                Welcome, {user?.email}
+              </span>
+              <ThemeToggle />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-light-textSecondary dark:text-dark-textSecondary hover:text-light-text dark:hover:text-dark-text"
+              >
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <div className="flex-1">
+            <Input
+              type="text"
+              placeholder="Search notes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              icon={<Search className="h-4 w-4 icon-theme-muted" />}
+              variant="filled"
+              className="bg-white dark:bg-dark-surface border-light-border dark:border-dark-border"
+            />
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <select
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value as any)}
+              className="px-3 py-2 bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg text-sm text-light-text dark:text-dark-text focus:ring-2 focus:ring-primary-500 dark:focus:ring-secondary-500"
+            >
+              <option value="all">All Notes</option>
+              <option value="favorites">Favorites</option>
+              <option value="recent">Recent</option>
+            </select>
+
+            <div className="flex items-center bg-white dark:bg-dark-surface border border-light-border dark:border-dark-border rounded-lg">
+              <Button
+                variant={viewMode === 'grid' ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="rounded-r-none border-r border-light-border dark:border-dark-border"
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="rounded-l-none"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Button
+              variant="primary"
+              onClick={handleCreateNote}
+              className="flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Note</span>
             </Button>
           </div>
-        )}
+        </div>
 
-        {/* Notes Grid */}
-        {!isLoading && filteredNotes.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Notes Grid/List */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 dark:border-secondary-500"></div>
+          </div>
+        ) : filteredNotes.length === 0 ? (
+          <Card className="text-center py-12 bg-white dark:bg-dark-surface border-light-border dark:border-dark-border">
+            <div className="max-w-md mx-auto">
+              <div className="w-16 h-16 bg-light-surface dark:bg-dark-bg rounded-full flex items-center justify-center mx-auto mb-4">
+                <Plus className="h-8 w-8 text-light-textMuted dark:text-dark-textMuted" />
+              </div>
+              <h3 className="text-lg font-medium text-light-text dark:text-dark-text mb-2">
+                {searchTerm ? 'No notes found' : 'No notes yet'}
+              </h3>
+              <p className="text-light-textSecondary dark:text-dark-textSecondary mb-6">
+                {searchTerm 
+                  ? 'Try adjusting your search terms or filters'
+                  : 'Create your first note to get started organizing your thoughts'
+                }
+              </p>
+              {!searchTerm && (
+                <Button variant="primary" onClick={handleCreateNote}>
+                  Create Your First Note
+                </Button>
+              )}
+            </div>
+          </Card>
+        ) : (
+          <div className={
+            viewMode === 'grid' 
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+              : 'space-y-4'
+          }>
             {filteredNotes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onEdit={handleEditNote}
-                onDelete={handleDeleteNote}
-                onClick={handleViewNote}
-              />
+              <ErrorBoundary key={`note-${note.id}`}>
+                <NoteCard
+                  note={note}
+                  onEdit={handleEditNote}
+                  onDelete={handleDeleteNote}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              </ErrorBoundary>
             ))}
           </div>
         )}
+      </main>
 
-        {/* No Search Results */}
-        {!isLoading && searchTerm && filteredNotes.length === 0 && notes.length > 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-600 dark:text-gray-400">
-              No notes found matching "{searchTerm}"
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Note Modal */}
-      <NoteModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingNote(null);
-        }}
-        onSave={handleSaveNote}
-        note={editingNote}
-        isLoading={isLoading}
-      />
-    </Layout>
+      {/* Note Editor Modal */}
+      {isEditorOpen && (
+        <ErrorBoundary>
+          <NoteEditor
+            note={selectedNote}
+            onSave={handleSaveNote}
+            onClose={() => {
+              setIsEditorOpen(false);
+              setSelectedNote(null);
+            }}
+          />
+        </ErrorBoundary>
+      )}
+    </div>
   );
 };

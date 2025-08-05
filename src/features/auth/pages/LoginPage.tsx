@@ -1,117 +1,232 @@
 import React, { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
-import { Mail, Lock, StickyNote } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
+import { authService } from '../services/authService';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
+import { Card } from '../../../shared/components/Card';
 import { ThemeToggle } from '../../../shared/components/ThemeToggle';
-import { useAuth } from '../hooks/useAuth';
-import { useAuthStore } from '../store/authStore';
-import { validateEmail, validatePassword } from '../../../shared/utils';
+import { showToast, showAdvancedToast } from '../../../shared/utils/toast';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  
-  const { login, error } = useAuth();
-  const { isAuthenticated, isLoading } = useAuthStore();
-
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { setAuth, setLoading } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Reset errors
-    setEmailError('');
-    setPasswordError('');
-    
-    // Validate
-    if (!validateEmail(email)) {
-      setEmailError('Please enter a valid email address');
+    if (!email || !password) {
+      showToast.warning('Please fill in all fields');
       return;
     }
+
+    setIsLoading(true);
+    setLoading(true);
     
-    if (!validatePassword(password)) {
-      setPasswordError('Password must be at least 6 characters');
-      return;
+    try {
+      const response = await authService.login({ email, password });
+      
+      if (response.success) {
+        // Store token and navigate
+        localStorage.setItem('auth_token', response.data.token);
+        
+        // Create a mock user object since login only returns token
+        const mockUser = {
+          id: 'user_' + Date.now(),
+          email: email,
+          role: 'user',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        setAuth(mockUser, response.data.token);
+        
+        showAdvancedToast.success(
+          'Welcome back!', 
+          'You have successfully logged in to your account.'
+        );
+        
+        navigate('/notes');
+      } else {
+        showAdvancedToast.error(
+          'Login Failed', 
+          response.message || 'Invalid email or password. Please try again.'
+        );
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Something went wrong. Please try again.';
+      
+      showAdvancedToast.error('Login Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+      setLoading(false);
     }
+  };
+
+  const handleDemoLogin = async () => {
+    setEmail('demo@example.com');
+    setPassword('demo123');
     
-    await login({ email, password });
+    // Trigger form submission after setting values
+    setTimeout(() => {
+      const form = document.querySelector('form');
+      if (form) {
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      }
+    }, 100);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 transition-all duration-300">
-      <div className="absolute top-6 right-6 z-10">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-dark-bg dark:to-dark-surface flex items-center justify-center p-4 relative">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
+
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
       
-      <div className="w-full max-w-md animate-subtle-fade-in">
-        <div className="glass-professional rounded-2xl shadow-xl p-8 border">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl shadow-lg mx-auto mb-4 transition-transform duration-200 hover:scale-105">
-              <StickyNote className="h-7 w-7 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Sign in to your account to continue</p>
+      <div className="w-full max-w-md relative z-10">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 dark:from-secondary-500 dark:to-secondary-600 rounded-2xl shadow-lg mb-4">
+            <LogIn className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-3xl font-bold text-light-text dark:text-dark-text mb-2">
+            Welcome Back
+          </h1>
+          <p className="text-light-textSecondary dark:text-dark-textSecondary">
+            Sign in to your account to continue
+          </p>
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-3 bg-red-50/80 dark:bg-red-900/20 border border-red-200/50 dark:border-red-800/50 rounded-lg">
-              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+        {/* Login Form */}
+        <Card variant="elevated" className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl border-light-border dark:border-dark-border">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                icon={<Mail className="h-4 w-4 icon-theme-muted" />}
+                variant="filled"
+                className="bg-light-surface dark:bg-dark-bg border-light-border dark:border-dark-border"
+                required
+              />
             </div>
-          )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <Input
-              type="email"
-              label="Email Address"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={emailError}
-              icon={<Mail className="h-4 w-4" />}
-              required
-            />
+            <div>
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                icon={<Lock className="h-4 w-4 icon-theme-muted" />}
+                rightIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-1 hover:bg-light-surface dark:hover:bg-dark-surface rounded transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 icon-theme-muted" />
+                    ) : (
+                      <Eye className="h-4 w-4 icon-theme-muted" />
+                    )}
+                  </button>
+                }
+                variant="filled"
+                className="bg-light-surface dark:bg-dark-bg border-light-border dark:border-dark-border"
+                required
+              />
+            </div>
 
-            <Input
-              type="password"
-              label="Password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={passwordError}
-              icon={<Lock className="h-4 w-4" />}
-              required
-            />
+            <div className="flex items-center justify-between">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 text-primary-600 dark:text-secondary-500 bg-light-surface dark:bg-dark-bg border-light-border dark:border-dark-border rounded focus:ring-primary-500 dark:focus:ring-secondary-500"
+                />
+                <span className="ml-2 text-sm text-light-textSecondary dark:text-dark-textSecondary">
+                  Remember me
+                </span>
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-sm text-primary-600 dark:text-secondary-400 hover:text-primary-700 dark:hover:text-secondary-300 transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             <Button
               type="submit"
-              className="w-full btn-professional"
-              loading={isLoading}
+              variant="primary"
               size="lg"
+              className="w-full"
+              loading={isLoading}
             >
-              Sign In
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-light-border dark:border-dark-border"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-dark-surface text-light-textMuted dark:text-dark-textMuted">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              className="w-full"
+              onClick={handleDemoLogin}
+              disabled={isLoading}
+            >
+              Try Demo Account
             </Button>
           </form>
 
-          {/* Footer */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
+          <div className="mt-6 text-center">
+            <p className="text-sm text-light-textSecondary dark:text-dark-textSecondary">
               Don't have an account?{' '}
               <Link
                 to="/register"
-                className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors duration-200"
+                className="font-medium text-primary-600 dark:text-secondary-400 hover:text-primary-700 dark:hover:text-secondary-300 transition-colors"
               >
                 Sign up
               </Link>
             </p>
           </div>
+        </Card>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-xs text-light-textMuted dark:text-dark-textMuted">
+            By signing in, you agree to our{' '}
+            <a href="#" className="text-primary-600 dark:text-secondary-400 hover:underline">
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a href="#" className="text-primary-600 dark:text-secondary-400 hover:underline">
+              Privacy Policy
+            </a>
+          </p>
         </div>
       </div>
     </div>

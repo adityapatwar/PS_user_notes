@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useNotesStore } from '../store/notesStore';
-import { notesService } from '../services/notesService';
+import { notesApi } from '../api/notesApi';
 import { CreateNoteData, UpdateNoteData } from '../../../shared/types';
-import { snakeToCamel } from '../../../shared/utils';
 
 export const useNotes = () => {
   const {
@@ -23,15 +22,10 @@ export const useNotes = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await notesService.getNotes();
-      
-      if (response.success && response.data) {
-        setNotes(snakeToCamel(response.data));
-      } else {
-        setError(response.message || 'Failed to fetch notes');
-      }
+      const fetchedNotes = await notesApi.getNotes();
+      setNotes(fetchedNotes);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch notes');
+      setError(err.message || 'Failed to fetch notes');
     } finally {
       setLoading(false);
     }
@@ -41,18 +35,11 @@ export const useNotes = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await notesService.createNote(data);
-      
-      if (response.success && response.data) {
-        const convertedNote = snakeToCamel(response.data);
-        addNote(convertedNote);
-        return convertedNote;
-      } else {
-        setError(response.message || 'Failed to create note');
-        return null;
-      }
+      const newNote = await notesApi.createNote(data);
+      addNote(newNote);
+      return newNote;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create note');
+      setError(err.message || 'Failed to create note');
       return null;
     } finally {
       setLoading(false);
@@ -63,17 +50,11 @@ export const useNotes = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await notesService.updateNote(id, data);
-      
-      if (response.success) {
-        updateNote(id, { ...data, updatedAt: new Date().toISOString() });
-        return true;
-      } else {
-        setError(response.message || 'Failed to update note');
-        return false;
-      }
+      const updatedNote = await notesApi.updateNote(id, data);
+      updateNote(id, updatedNote);
+      return true;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update note');
+      setError(err.message || 'Failed to update note');
       return false;
     } finally {
       setLoading(false);
@@ -84,17 +65,11 @@ export const useNotes = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await notesService.deleteNote(id);
-      
-      if (response.success) {
-        deleteNote(id);
-        return true;
-      } else {
-        setError(response.message || 'Failed to delete note');
-        return false;
-      }
+      await notesApi.deleteNote(id);
+      deleteNote(id);
+      return true;
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete note');
+      setError(err.message || 'Failed to delete note');
       return false;
     } finally {
       setLoading(false);
